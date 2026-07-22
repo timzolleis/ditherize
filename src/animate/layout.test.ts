@@ -9,7 +9,7 @@ const fixture: DotData = {
 describe('dotDataToLayout', () => {
   it('centers grid coordinates in the canvas', () => {
     const layout = dotDataToLayout(fixture, 400, 300, {
-      scale: 0.5, dotScale: 1, invert: false,
+      scale: 0.5, dotScale: 1, invert: false, foregroundColor: '#eeede7',
     })
     expect(layout.count).toBe(1)
     expect(layout.x[0]).toBe(125)
@@ -17,9 +17,16 @@ describe('dotDataToLayout', () => {
     expect(layout.size[0]).toBe(75)
   })
 
+  it('uses the selected preview foreground for monochrome dots', () => {
+    const layout = dotDataToLayout(fixture, 100, 100, {
+      scale: 1, dotScale: 1, invert: false, foregroundColor: '#1a1a18',
+    })
+    expect(layout.palette).toEqual(['#1a1a18'])
+  })
+
   it('builds the rounded-rectangle complement in invert mode', () => {
     const layout = dotDataToLayout(fixture, 100, 100, {
-      scale: 1, dotScale: 1, invert: true,
+      scale: 1, dotScale: 1, invert: true, foregroundColor: '#eeede7',
     })
     expect(layout.count).toBe(3)
   })
@@ -30,7 +37,7 @@ describe('dotDataToLayout', () => {
       palette: ['#123456'], dots: [[0, 0, 0]],
     }
     const layout = dotDataToLayout(data, 100, 100, {
-      scale: 1, dotScale: 0.5, invert: false,
+      scale: 1, dotScale: 0.5, invert: false, foregroundColor: '#eeede7',
     })
     expect(layout.palette).toEqual(['#123456'])
     expect(layout.paletteIndex[0]).toBe(0)

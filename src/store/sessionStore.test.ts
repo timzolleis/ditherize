@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_ANIM_CONFIG } from '../animate/useDotAnimation'
 import { DEFAULT_DITHER_CONFIG } from '../dither/types'
-import { DITHER_CONFIG_KEY, loadAnimConfig, loadDitherConfig, saveAnimConfig, saveDitherConfig } from './sessionStore'
+import {
+  DITHER_CONFIG_KEY,
+  loadAnimConfig,
+  loadDitherConfig,
+  loadPreviewAppearance,
+  saveAnimConfig,
+  saveDitherConfig,
+  savePreviewAppearance,
+} from './sessionStore'
 
 const values = new Map<string, string>()
 const storage = {
@@ -35,5 +43,11 @@ describe('dither session settings', () => {
     const config = { ...DEFAULT_ANIM_CONFIG, mouseStrength: 75, invert: false }
     saveAnimConfig(config)
     expect(loadAnimConfig()).toEqual(config)
+  })
+
+  it('persists the shared preview appearance', () => {
+    const appearance = { mode: 'light' as const, backgroundColor: '#ffcc00' }
+    savePreviewAppearance(appearance)
+    expect(loadPreviewAppearance()).toEqual(appearance)
   })
 })

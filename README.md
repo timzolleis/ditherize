@@ -7,7 +7,8 @@ A client-side image-to-dot tool and interactive animation playground built with 
 - 11 error-diffusion kernels, including Floyd–Steinberg, Atkinson, Jarvis, Stucki, and Sierra variants
 - Tone, scale, blur, threshold, error-strength, serpentine, invert, and rounded-mask controls
 - Optional preset or custom palettes with Rec. 709 RGB and OKLab matching
-- High-resolution PNG, crisp SVG, JSON, and TypeScript exports generated from your own images
+- PNG, JPEG, WebP, GIF, and SVG source uploads with high-resolution PNG, crisp SVG, JSON, and TypeScript exports
+- Shared dark, light, and custom-background previews across the dither and animation tools
 - Cursor repulsion, spring return, and click shockwaves with live physics controls
 - Dither and animation settings persist through localStorage; uploaded pixels persist through IndexedDB
 - Copyable `dither-animation.tsx` implementation with React as its only dependency

@@ -52,6 +52,7 @@ export function useDotAnimation(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   dotData: DotData,
   config: AnimConfig,
+  foregroundColor: string,
 ): void {
   // Physics values are read through a ref so slider drags tune the live
   // animation instead of tearing it down and rebuilding the dot field.
@@ -83,6 +84,7 @@ export function useDotAnimation(
         scale: 0.74,
         dotScale,
         invert: invert && dotData.kind === 'bw',
+        foregroundColor,
       })
       return {
         context,
@@ -222,5 +224,5 @@ export function useDotAnimation(
       canvas.removeEventListener('pointerleave', onPointerLeave)
       canvas.removeEventListener('pointerup', onPointerUp)
     }
-  }, [canvasRef, dotData, dotScale, invert])
+  }, [canvasRef, dotData, dotScale, invert, foregroundColor])
 }

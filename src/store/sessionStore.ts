@@ -1,9 +1,11 @@
 import { DEFAULT_ANIM_CONFIG, type AnimConfig } from '../animate/useDotAnimation'
 import { KERNEL_NAMES } from '../dither/kernels'
 import { DEFAULT_DITHER_CONFIG, type DitherConfig, type PaletteMode, type PixelBuffer } from '../dither/types'
+import { DEFAULT_PREVIEW_APPEARANCE, type PreviewAppearance } from '../preview/appearance'
 
 export const DITHER_CONFIG_KEY = 'dither-studio:config:v1'
 export const ANIM_CONFIG_KEY = 'dither-studio:animation:v1'
+export const PREVIEW_APPEARANCE_KEY = 'dither-studio:preview-appearance:v1'
 const DATABASE_NAME = 'dither-studio'
 const DATABASE_VERSION = 1
 const SESSION_STORE = 'session'
@@ -66,6 +68,34 @@ export function saveDitherConfig(config: DitherConfig): void {
     localStorage.setItem(DITHER_CONFIG_KEY, JSON.stringify(config))
   } catch {
     // Settings persistence is best-effort in constrained/private browsing contexts.
+  }
+}
+
+/** Load the shared preview appearance, falling back when persisted input is invalid. */
+export function loadPreviewAppearance(): PreviewAppearance {
+  try {
+    const raw = localStorage.getItem(PREVIEW_APPEARANCE_KEY)
+    if (!raw) return DEFAULT_PREVIEW_APPEARANCE
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null) return DEFAULT_PREVIEW_APPEARANCE
+    const value = parsed as Record<string, unknown>
+    if (value.mode !== 'dark' && value.mode !== 'light') return DEFAULT_PREVIEW_APPEARANCE
+    if (value.backgroundColor !== null && (
+      typeof value.backgroundColor !== 'string' ||
+      !/^#[0-9a-f]{6}$/i.test(value.backgroundColor)
+    )) return DEFAULT_PREVIEW_APPEARANCE
+    return { mode: value.mode, backgroundColor: value.backgroundColor }
+  } catch {
+    return DEFAULT_PREVIEW_APPEARANCE
+  }
+}
+
+/** Persist the shared preview appearance when browser storage is available. */
+export function savePreviewAppearance(appearance: PreviewAppearance): void {
+  try {
+    localStorage.setItem(PREVIEW_APPEARANCE_KEY, JSON.stringify(appearance))
+  } catch {
+    // Preview persistence is best-effort in constrained/private browsing contexts.
   }
 }
 

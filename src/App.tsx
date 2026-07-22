@@ -4,15 +4,24 @@ import type { DitherConfig, PixelBuffer } from './dither/types'
 import { AnimatePage } from './pages/AnimatePage'
 import { DitherPage } from './pages/DitherPage'
 import { makePlaceholder } from './placeholder'
-import { loadDitherConfig, loadPersistedSource, saveDitherConfig } from './store/sessionStore'
+import type { PreviewAppearance } from './preview/appearance'
+import {
+  loadDitherConfig,
+  loadPersistedSource,
+  loadPreviewAppearance,
+  saveDitherConfig,
+  savePreviewAppearance,
+} from './store/sessionStore'
 
 export default function App() {
   // Keep the editing session above the routes so route changes do not discard uploads or settings.
   const [ditherSource, setDitherSource] = useState<PixelBuffer>(() => makePlaceholder())
   const [ditherSourceName, setDitherSourceName] = useState('Studio sphere')
   const [ditherConfig, setDitherConfig] = useState<DitherConfig>(() => loadDitherConfig())
+  const [previewAppearance, setPreviewAppearance] = useState<PreviewAppearance>(() => loadPreviewAppearance())
 
   useEffect(() => saveDitherConfig(ditherConfig), [ditherConfig])
+  useEffect(() => savePreviewAppearance(previewAppearance), [previewAppearance])
 
   useEffect(() => {
     let cancelled = false
@@ -49,10 +58,20 @@ export default function App() {
               setSourceName={setDitherSourceName}
               config={ditherConfig}
               setConfig={setDitherConfig}
+              previewAppearance={previewAppearance}
+              setPreviewAppearance={setPreviewAppearance}
             />
           )}
         />
-        <Route path="/animate" element={<AnimatePage />} />
+        <Route
+          path="/animate"
+          element={(
+            <AnimatePage
+              previewAppearance={previewAppearance}
+              setPreviewAppearance={setPreviewAppearance}
+            />
+          )}
+        />
         <Route path="*" element={<Navigate to="/dither" replace />} />
       </Routes>
     </div>

@@ -2,12 +2,15 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import { ditherImage } from '../dither/engine'
 import { toJsCode, toJson, toPngBlob, toSvg } from '../dither/exporters'
 import { KERNEL_NAMES } from '../dither/kernels'
-import { hexToRgb, lightestColorIndex, PRESET_PALETTES } from '../dither/palette'
+import { PRESET_PALETTES } from '../dither/palette'
 import type { DitherConfig, DotData, PixelBuffer } from '../dither/types'
+import { resolvePreviewColors, type PreviewAppearance, type PreviewColors } from '../preview/appearance'
+import { IMAGE_UPLOAD_ACCEPT, readImageFile } from '../source/imageUpload'
 import { saveDotData } from '../store/dotStore'
 import { savePersistedSource } from '../store/sessionStore'
 import { Checkbox } from '../ui/Checkbox'
 import { PaletteEditor } from '../ui/PaletteEditor'
+import { PreviewControls } from '../ui/PreviewControls'
 import { Section } from '../ui/Section'
 import { Slider } from '../ui/Slider'
 
@@ -25,7 +28,7 @@ const kernelLabels: Record<string, string> = {
   ShiauFan2: 'Shiau–Fan 2',
 }
 
-function drawPreview(canvas: HTMLCanvasElement, data: DotData): void {
+function drawPreview(canvas: HTMLCanvasElement, data: DotData, colors: PreviewColors): void {
   const rect = canvas.getBoundingClientRect()
   const dpr = window.devicePixelRatio || 1
   canvas.width = Math.max(1, Math.round(rect.width * dpr))
@@ -33,7 +36,7 @@ function drawPreview(canvas: HTMLCanvasElement, data: DotData): void {
   const context = canvas.getContext('2d')
   if (!context) return
   context.setTransform(dpr, 0, 0, dpr, 0, 0)
-  context.fillStyle = '#151513'
+  context.fillStyle = colors.background
   context.fillRect(0, 0, rect.width, rect.height)
 
   const padding = Math.min(rect.width, rect.height) * 0.09
@@ -43,23 +46,8 @@ function drawPreview(canvas: HTMLCanvasElement, data: DotData): void {
   const dotSize = Math.max(0.7, cell * 0.86)
   const inset = (cell - dotSize) / 2
 
-  if (data.kind === 'palette') {
-    const colors = data.palette.map(hexToRgb).filter((color) => color !== null)
-    const backgroundIndex = colors.length === data.palette.length ? lightestColorIndex(colors) : 0
-    context.fillStyle = data.palette[backgroundIndex] ?? '#ffffff'
-    context.beginPath()
-    context.roundRect(
-      offsetX,
-      offsetY,
-      data.width * cell,
-      data.height * cell,
-      data.cornerRadius * cell,
-    )
-    context.fill()
-  }
-
   if (data.kind === 'bw') {
-    context.fillStyle = '#eeede7'
+    context.fillStyle = colors.foreground
     data.dots.forEach(([col, row]) => context.fillRect(offsetX + col * cell + inset, offsetY + row * cell + inset, dotSize, dotSize))
   } else {
     // One pass over the dots: group by color first so fill style changes once per color.
@@ -72,30 +60,6 @@ function drawPreview(canvas: HTMLCanvasElement, data: DotData): void {
         context.fillRect(offsetX + col * cell + inset, offsetY + row * cell + inset, dotSize, dotSize)
       })
     })
-  }
-}
-
-async function fileToPixelBuffer(file: File): Promise<PixelBuffer> {
-  const url = URL.createObjectURL(file)
-  try {
-    const image = new Image()
-    image.decoding = 'async'
-    image.src = url
-    await image.decode()
-    const maxDimension = 1200
-    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight))
-    const width = Math.max(1, Math.round(image.naturalWidth * scale))
-    const height = Math.max(1, Math.round(image.naturalHeight * scale))
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const context = canvas.getContext('2d', { willReadFrequently: true })
-    if (!context) throw new Error('Canvas is unavailable')
-    context.drawImage(image, 0, 0, width, height)
-    const imageData = context.getImageData(0, 0, width, height)
-    return { width, height, data: new Uint8ClampedArray(imageData.data) }
-  } finally {
-    URL.revokeObjectURL(url)
   }
 }
 
@@ -119,6 +83,8 @@ interface DitherPageProps {
   readonly setSourceName: Dispatch<SetStateAction<string>>
   readonly config: DitherConfig
   readonly setConfig: Dispatch<SetStateAction<DitherConfig>>
+  readonly previewAppearance: PreviewAppearance
+  readonly setPreviewAppearance: Dispatch<SetStateAction<PreviewAppearance>>
 }
 
 export function DitherPage({
@@ -128,6 +94,8 @@ export function DitherPage({
   setSourceName,
   config,
   setConfig,
+  previewAppearance,
+  setPreviewAppearance,
 }: DitherPageProps) {
   const [dotData, setDotData] = useState(() => ditherImage(source, config))
   const [message, setMessage] = useState('Ready to export')
@@ -135,6 +103,7 @@ export function DitherPage({
   const [processingLabel, setProcessingLabel] = useState('Reading image…')
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const processingSourceRef = useRef<PixelBuffer | null>(null)
+  const previewColors = resolvePreviewColors(previewAppearance)
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -155,12 +124,12 @@ export function DitherPage({
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const render = () => drawPreview(canvas, dotData)
+    const render = () => drawPreview(canvas, dotData, previewColors)
     render()
     const observer = new ResizeObserver(render)
     observer.observe(canvas)
     return () => observer.disconnect()
-  }, [dotData])
+  }, [dotData, previewColors.background, previewColors.foreground])
 
   const patchConfig = (patch: Partial<DitherConfig>) => setConfig((current) => ({ ...current, ...patch }))
   const palette = config.palette.kind === 'palette' ? config.palette : {
@@ -187,10 +156,11 @@ export function DitherPage({
               {isProcessingUpload ? 'Working…' : 'Replace'}
               <input
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept={IMAGE_UPLOAD_ACCEPT}
                 disabled={isProcessingUpload}
                 onChange={async (event) => {
-                  const file = event.target.files?.[0]
+                  const input = event.currentTarget
+                  const file = input.files?.[0]
                   if (!file) return
                   try {
                     setMessage('Loading image…')
@@ -198,7 +168,15 @@ export function DitherPage({
                     setIsProcessingUpload(true)
                     // Yield once so the loading overlay paints before image decoding starts.
                     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-                    const image = await fileToPixelBuffer(file)
+                    const result = await readImageFile(file)
+                    if (!result.ok) {
+                      setIsProcessingUpload(false)
+                      setMessage(result.error._tag === 'UnsupportedImageType'
+                        ? 'Use a PNG, JPEG, WebP, GIF, or SVG image'
+                        : 'Could not read that image')
+                      return
+                    }
+                    const image = result.value
                     setProcessingLabel('Generating dot field…')
                     processingSourceRef.current = image
                     setSource(image)
@@ -210,8 +188,9 @@ export function DitherPage({
                     processingSourceRef.current = null
                     setIsProcessingUpload(false)
                     setMessage('Could not read that image')
+                  } finally {
+                    input.value = ''
                   }
-                  event.target.value = ''
                 }}
               />
             </label>
@@ -286,9 +265,12 @@ export function DitherPage({
           <div>
             <span className="live-dot" /> Live preview
           </div>
-          <span>{dotData.width} × {dotData.height} grid</span>
+          <div className="stage-toolbar-actions">
+            <span>{dotData.width} × {dotData.height} grid</span>
+            <PreviewControls appearance={previewAppearance} onChange={setPreviewAppearance} />
+          </div>
         </div>
-        <div className="canvas-shell dither-shell">
+        <div className="canvas-shell dither-shell" style={{ background: previewColors.background }}>
           <canvas ref={canvasRef} aria-label="Generated dot preview" />
           {isProcessingUpload && (
             <div className="processing-overlay" role="status" aria-live="polite">

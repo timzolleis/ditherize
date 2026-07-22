@@ -14,6 +14,7 @@ export interface LayoutConfig {
   readonly scale: number
   readonly dotScale: number
   readonly invert: boolean
+  readonly foregroundColor: string
 }
 
 function layoutDots(data: DotData, invert: boolean): ReadonlyArray<readonly [number, number, number]> {
@@ -66,7 +67,7 @@ export function dotDataToLayout(
     y,
     size,
     paletteIndex,
-    palette: data.kind === 'palette' ? data.palette : ['#e8e7e2'],
+    palette: data.kind === 'palette' ? data.palette : [config.foregroundColor],
     count: dots.length,
   }
 }

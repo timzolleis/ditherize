@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { toReactComponent, toReactPreset } from '../animate/component-exporter'
 import { DEFAULT_ANIM_CONFIG, useDotAnimation, type AnimConfig } from '../animate/useDotAnimation'
 import { ditherImage } from '../dither/engine'
-import { hexToRgb, lightestColorIndex } from '../dither/palette'
 import { DEFAULT_DITHER_CONFIG } from '../dither/types'
+import { resolvePreviewColors, type PreviewAppearance } from '../preview/appearance'
 import { makePlaceholder } from '../placeholder'
 import { loadDotData } from '../store/dotStore'
 import { loadAnimConfig, saveAnimConfig } from '../store/sessionStore'
 import { Checkbox } from '../ui/Checkbox'
+import { PreviewControls } from '../ui/PreviewControls'
 import { Section } from '../ui/Section'
 import { Slider } from '../ui/Slider'
 
@@ -28,18 +29,19 @@ async function copyText(content: string): Promise<boolean> {
   }
 }
 
-export function AnimatePage() {
+interface AnimatePageProps {
+  readonly previewAppearance: PreviewAppearance
+  readonly setPreviewAppearance: Dispatch<SetStateAction<PreviewAppearance>>
+}
+
+export function AnimatePage({ previewAppearance, setPreviewAppearance }: AnimatePageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dotData = useMemo(() => loadDotData() ?? ditherImage(makePlaceholder(), DEFAULT_DITHER_CONFIG), [])
   const [config, setConfig] = useState<AnimConfig>(() => loadAnimConfig())
   const [copyStatus, setCopyStatus] = useState('React only · no package required')
   const patchConfig = (patch: Partial<AnimConfig>) => setConfig((current) => ({ ...current, ...patch }))
-  const paletteBackground = useMemo(() => {
-    if (dotData.kind !== 'palette') return undefined
-    const colors = dotData.palette.map(hexToRgb).filter((color) => color !== null)
-    return colors.length === dotData.palette.length ? dotData.palette[lightestColorIndex(colors)] : dotData.palette[0]
-  }, [dotData])
-  useDotAnimation(canvasRef, dotData, config)
+  const previewColors = resolvePreviewColors(previewAppearance)
+  useDotAnimation(canvasRef, dotData, config, previewColors.foreground)
   useEffect(() => saveAnimConfig(config), [config])
 
   return (
@@ -115,9 +117,12 @@ export function AnimatePage() {
       <section className="stage animation-stage" aria-label="Dot animation playground">
         <div className="stage-toolbar">
           <div><span className="live-dot" /> Physics active</div>
-          <span>Move to repel · click for shockwave</span>
+          <div className="stage-toolbar-actions">
+            <span>Move to repel · click for shockwave</span>
+            <PreviewControls appearance={previewAppearance} onChange={setPreviewAppearance} />
+          </div>
         </div>
-        <div className="canvas-shell animation-shell" style={paletteBackground ? { background: paletteBackground } : undefined}>
+        <div className="canvas-shell animation-shell" style={{ background: previewColors.background }}>
           <canvas ref={canvasRef} aria-label="Interactive dithered dot animation" />
           <div className="interaction-hint" aria-hidden="true">
             <span className="cursor-ring" />
